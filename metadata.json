@@ -1,0 +1,9 @@
+{
+  "name": "Evidencias Proyecto Solar",
+  "description": "App para toma de evidencias fotográficas con geolocalización y registro en PDF para proyectos solares.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
