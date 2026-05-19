@@ -1,9 +1,26 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Camera, FileDown, CheckCircle, Image as ImageIcon, Loader2, MapPin, CheckSquare, Zap, HardHat, FileText } from 'lucide-react';
 import { processImage } from './lib/watermark';
 import { jsPDF } from 'jspdf';
 
 export default function App() {
+  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const img = new Image();
+    img.src = '/logo.png';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        setLogoDataUrl(canvas.toDataURL('image/png'));
+      }
+    };
+  }, []);
+
   const [projectInfo, setProjectInfo] = useState({
     name: '',
     address: '',
@@ -49,18 +66,34 @@ export default function App() {
       const doc = new jsPDF();
       
       // Portada / Info
+      if (logoDataUrl) {
+         try {
+           const imgProps = doc.getImageProperties(logoDataUrl);
+           const maxWidth = 50;
+           const maxHeight = 25;
+           const ratio = Math.min(maxWidth / imgProps.width, maxHeight / imgProps.height);
+           const drawW = imgProps.width * ratio;
+           const drawH = imgProps.height * ratio;
+           // Align to top right
+           doc.addImage(logoDataUrl, 'PNG', 190 - drawW, 10, drawW, drawH);
+         } catch (e) {
+           console.error("Error adding logo", e);
+         }
+      }
+
       doc.setFontSize(22);
       doc.setTextColor(30, 58, 138); // blue-900
-      doc.text('Evidencia de Instalación: Proyecto Solar', 20, 25);
+      doc.text('Evidencia de Instalación', 20, 25);
+      doc.text('Proyecto Solar', 20, 33);
       
       doc.setDrawColor(200, 200, 200);
-      doc.line(20, 32, 190, 32);
+      doc.line(20, 40, 190, 40);
 
       doc.setFontSize(12);
       doc.setTextColor(50, 50, 50);
 
       const spacing = 12;
-      let yOffset = 45;
+      let yOffset = 52;
 
       doc.setFont('helvetica', 'bold');
       doc.text('Nombre del Proyecto:', 20, yOffset);

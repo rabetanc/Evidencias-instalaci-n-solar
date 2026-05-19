@@ -28,16 +28,28 @@ function applyWatermark(
   reader.onload = (e) => {
     const img = new Image();
     img.onload = () => {
+      let width = img.width;
+      let height = img.height;
+      const MAX_DIMENSION = 1200; // Reducimos el tamaño para evitar problemas de memoria
+
+      if (width > height && width > MAX_DIMENSION) {
+        height = Math.round((height * MAX_DIMENSION) / width);
+        width = MAX_DIMENSION;
+      } else if (height > MAX_DIMENSION) {
+        width = Math.round((width * MAX_DIMENSION) / height);
+        height = MAX_DIMENSION;
+      }
+
       const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
+      canvas.width = width;
+      canvas.height = height;
       const ctx = canvas.getContext('2d');
       if (!ctx) return reject(new Error('No canvas context'));
 
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, 0, 0, width, height);
 
       // Determine responsive font size for watermark
-      const fontSize = Math.max(32, Math.floor(img.height / 30));
+      const fontSize = Math.max(16, Math.floor(height / 30));
       ctx.font = `bold ${fontSize}px sans-serif`;
       ctx.fillStyle = '#facc15'; // yellow-400 (good contrast on dark backgrounds)
       ctx.strokeStyle = '#000000';
@@ -49,8 +61,8 @@ function applyWatermark(
       const geoStr = lat && lng ? `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}` : 'Ubicación GPS no disponible';
 
       const padding = Math.floor(fontSize * 0.8);
-      const x = img.width - padding;
-      let y = img.height - padding;
+      const x = width - padding;
+      let y = height - padding;
 
       // Draw from bottom to top
       const lines = [geoStr, dateStr, 'Evidencia: Proyecto Solar'];
@@ -61,7 +73,7 @@ function applyWatermark(
         y -= (fontSize + 10);
       }
 
-      resolve(canvas.toDataURL('image/jpeg', 0.8));
+      resolve(canvas.toDataURL('image/jpeg', 0.7)); // Compress more for memory saving
     };
     img.onerror = reject;
     if (e.target?.result) {
