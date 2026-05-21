@@ -5,20 +5,25 @@ import { jsPDF } from 'jspdf';
 
 export default function App() {
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
+  const [footerDataUrl, setFooterDataUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    const img = new Image();
-    img.src = '/logo.png';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(img, 0, 0);
-        setLogoDataUrl(canvas.toDataURL('image/png'));
-      }
+    const loadImg = (src: string, setter: (val: string) => void) => {
+      const img = new Image();
+      img.src = src;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          setter(canvas.toDataURL('image/png'));
+        }
+      };
     };
+    loadImg('/logo.png', setLogoDataUrl);
+    loadImg('/footer.png', setFooterDataUrl); // Espera que la imagen footer se provea en /footer.png
   }, []);
 
   const [projectInfo, setProjectInfo] = useState({
@@ -30,13 +35,13 @@ export default function App() {
   });
 
   const [photos, setPhotos] = useState([
-    { id: 'cubierta', label: 'Cubierta solar (Paneles instalados)', dataUrl: null as string | null, loading: false },
-    { id: 'inversor', label: 'Inversor (Pantalla encendida y placa)', dataUrl: null as string | null, loading: false },
-    { id: 'ac', label: 'Caja eléctrica y protecciones AC', dataUrl: null as string | null, loading: false },
-    { id: 'dc', label: 'Caja eléctrica y protecciones DC', dataUrl: null as string | null, loading: false },
-    { id: 'spt', label: 'Sistema de Puesta a Tierra (SPT)', dataUrl: null as string | null, loading: false },
-    { id: 'medidor', label: 'Medidor Bidireccional (Si ya está instalado)', dataUrl: null as string | null, loading: false },
-    { id: 'etiquetas', label: 'Etiquetado de Seguridad', dataUrl: null as string | null, loading: false },
+    { id: 'cubierta', label: 'Cubierta solar (Paneles instalados)', dataUrls: [] as string[], loading: false },
+    { id: 'inversor', label: 'Inversor (Pantalla encendida y placa)', dataUrls: [] as string[], loading: false },
+    { id: 'ac', label: 'Caja eléctrica y protecciones AC', dataUrls: [] as string[], loading: false },
+    { id: 'dc', label: 'Caja eléctrica y protecciones DC', dataUrls: [] as string[], loading: false },
+    { id: 'spt', label: 'Sistema de Puesta a Tierra (SPT)', dataUrls: [] as string[], loading: false },
+    { id: 'medidor', label: 'Medidor Bidireccional (Si ya está instalado)', dataUrls: [] as string[], loading: false },
+    { id: 'etiquetas', label: 'Etiquetado de Seguridad', dataUrls: [] as string[], loading: false },
   ]);
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -46,18 +51,27 @@ export default function App() {
   };
 
   const handlePhotoCapture = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
 
     setPhotos(prev => prev.map(p => p.id === id ? { ...p, loading: true } : p));
+    
     try {
-      const dataUrl = await processImage(file);
-      setPhotos(prev => prev.map(p => p.id === id ? { ...p, dataUrl, loading: false } : p));
+      const newDataUrls: string[] = [];
+      for (const file of files) {
+        const dataUrl = await processImage(file);
+        newDataUrls.push(dataUrl);
+      }
+      setPhotos(prev => prev.map(p => p.id === id ? { ...p, dataUrls: [...p.dataUrls, ...newDataUrls], loading: false } : p));
     } catch (err) {
       console.error(err);
-      alert('Error procesando la imagen. Asegúrate de dar permisos de cámara y ubicación si se solicita.');
+      alert('Error procesando la imagen o no se aprobó la geolocalización. ' + (err instanceof Error ? err.message : ''));
       setPhotos(prev => prev.map(p => p.id === id ? { ...p, loading: false } : p));
     }
+  };
+
+  const removePhoto = (id: string, indexToRemove: number) => {
+    setPhotos(prev => prev.map(p => p.id === id ? { ...p, dataUrls: p.dataUrls.filter((_, idx) => idx !== indexToRemove) } : p));
   };
 
   const generatePDF = async () => {
@@ -78,6 +92,20 @@ export default function App() {
            doc.addImage(logoDataUrl, 'PNG', 190 - drawW, 10, drawW, drawH);
          } catch (e) {
            console.error("Error adding logo", e);
+         }
+      }
+
+      if (footerDataUrl) {
+         try {
+           const footerProps = doc.getImageProperties(footerDataUrl);
+           const pW = doc.internal.pageSize.getWidth();
+           const pH = doc.internal.pageSize.getHeight();
+           const fRatio = pW / footerProps.width;
+           const fW = pW;
+           const fH = footerProps.height * fRatio;
+           doc.addImage(footerDataUrl, 'PNG', 0, pH - fH, fW, fH);
+         } catch(e) {
+           console.warn('Could not add footer to portada', e);
          }
       }
 
@@ -127,24 +155,42 @@ export default function App() {
       // Photos
       let photosAdded = 0;
       for (const photo of photos) {
-        if (photo.dataUrl) {
-          doc.addPage();
-          photosAdded++;
-          
-          doc.setFontSize(16);
-          doc.setFont('helvetica', 'bold');
-          doc.setTextColor(30, 58, 138);
-          doc.text(photo.label, 20, 20);
-          
-          const imgProps = doc.getImageProperties(photo.dataUrl);
-          const pdfW = doc.internal.pageSize.getWidth() - 40;
-          const pdfH = doc.internal.pageSize.getHeight() - 40;
-          
-          const ratio = Math.min(pdfW / imgProps.width, pdfH / imgProps.height);
-          const drawW = imgProps.width * ratio;
-          const drawH = imgProps.height * ratio;
-          
-          doc.addImage(photo.dataUrl, 'JPEG', 20, 30, drawW, drawH);
+        if (photo.dataUrls.length > 0) {
+          for (let i = 0; i < photo.dataUrls.length; i++) {
+            const dataUrl = photo.dataUrls[i];
+            doc.addPage();
+            photosAdded++;
+            
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(30, 58, 138);
+            doc.text(`${photo.label} (${i + 1}/${photo.dataUrls.length})`, 20, 20);
+            
+            const imgProps = doc.getImageProperties(dataUrl);
+            const pdfW = doc.internal.pageSize.getWidth() - 40;
+            const pdfH = doc.internal.pageSize.getHeight() - 40 - 20; // Dejar espacio para footer
+            
+            const ratio = Math.min(pdfW / imgProps.width, pdfH / imgProps.height);
+            const drawW = imgProps.width * ratio;
+            const drawH = imgProps.height * ratio;
+            
+            doc.addImage(dataUrl, 'JPEG', 20, 30, drawW, drawH);
+
+            // Add footer to page if available
+            if (footerDataUrl) {
+              try {
+                const footerProps = doc.getImageProperties(footerDataUrl);
+                const pW = doc.internal.pageSize.getWidth();
+                const pH = doc.internal.pageSize.getHeight();
+                const fRatio = pW / footerProps.width;
+                const fW = pW;
+                const fH = footerProps.height * fRatio;
+                doc.addImage(footerDataUrl, 'PNG', 0, pH - fH, fW, fH);
+              } catch(e) {
+                console.warn('Could not add footer', e);
+              }
+            }
+          }
         }
       }
 
@@ -161,7 +207,7 @@ export default function App() {
     }
   };
 
-  const getMissingCount = () => photos.filter(p => !p.dataUrl).length;
+  const getMissingCount = () => photos.filter(p => p.dataUrls.length === 0).length;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-24 font-sans">
@@ -246,21 +292,21 @@ export default function App() {
 
             {photos.map(photo => (
               <div key={photo.id} className="border border-slate-200 rounded-lg p-3 group hover:border-blue-300 transition-colors">
-                <div className="flex justify-between items-start gap-3">
+                <div className="flex justify-between items-start gap-3 flex-col sm:flex-row">
                   <div className="flex-1">
                     <h3 className="font-semibold text-slate-800 flex items-center gap-2">
                       {photo.label}
-                      {photo.dataUrl && <CheckCircle className="w-4 h-4 text-green-500" />}
+                      {photo.dataUrls.length > 0 && <CheckCircle className="w-4 h-4 text-green-500" />}
                     </h3>
                   </div>
-                  <div>
+                  <div className="flex items-center gap-2">
                     <label className="cursor-pointer bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded text-sm font-medium transition-colors border border-blue-200 flex items-center gap-2 shrink-0">
                       {photo.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-                      {photo.dataUrl ? 'Retomar' : 'Tomar Foto'}
+                      {photo.dataUrls.length > 0 ? 'Añadir más fotos' : 'Cámara / Galería'}
                       <input 
                         type="file" 
                         accept="image/*" 
-                        capture="environment" 
+                        multiple
                         className="hidden"
                         onChange={(e) => handlePhotoCapture(photo.id, e)}
                         disabled={photo.loading}
@@ -269,9 +315,20 @@ export default function App() {
                   </div>
                 </div>
 
-                {photo.dataUrl && (
-                  <div className="mt-3 relative rounded overflow-hidden border border-slate-200 bg-slate-100">
-                    <img src={photo.dataUrl} alt={photo.label} className="w-full h-40 object-cover" />
+                {photo.dataUrls.length > 0 && (
+                  <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {photo.dataUrls.map((url, idx) => (
+                      <div key={idx} className="relative rounded overflow-hidden border border-slate-200 bg-slate-100 group">
+                        <img src={url} alt={`${photo.label} ${idx + 1}`} className="w-full h-24 sm:h-32 object-cover" />
+                        <button
+                          onClick={() => removePhoto(photo.id, idx)}
+                          className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white p-1 rounded hover:scale-110 active:scale-95 transition-all text-xs z-10"
+                          title="Eliminar foto"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

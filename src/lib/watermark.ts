@@ -1,7 +1,7 @@
 export async function processImage(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
-       applyWatermark(file, null, null, resolve, reject);
+       reject(new Error('La geolocalización no está soportada por este navegador.'));
        return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -10,9 +10,9 @@ export async function processImage(file: File): Promise<string> {
       },
       (error) => {
         console.warn('Geolocation error:', error);
-        applyWatermark(file, null, null, resolve, reject);
+        reject(new Error('Debes permitir el acceso a tu ubicación para tomar la evidencia.'));
       },
-      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   });
 }
