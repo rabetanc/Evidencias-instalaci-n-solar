@@ -299,10 +299,22 @@ export default function App() {
                       {photo.dataUrls.length > 0 && <CheckCircle className="w-4 h-4 text-green-500" />}
                     </h3>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <label className="cursor-pointer bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded text-sm font-medium transition-colors border border-blue-200 flex items-center gap-2 shrink-0">
                       {photo.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-                      {photo.dataUrls.length > 0 ? 'Añadir más fotos' : 'Cámara / Galería'}
+                      Cámara
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        capture="environment"
+                        className="hidden"
+                        onChange={(e) => handlePhotoCapture(photo.id, e)}
+                        disabled={photo.loading}
+                      />
+                    </label>
+                    <label className="cursor-pointer bg-slate-50 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded text-sm font-medium transition-colors border border-slate-200 flex items-center gap-2 shrink-0">
+                      {photo.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
+                      Galería
                       <input 
                         type="file" 
                         accept="image/*" 
