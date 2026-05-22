@@ -6,6 +6,7 @@ import { jsPDF } from 'jspdf';
 export default function App() {
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [footerDataUrl, setFooterDataUrl] = useState<string | null>(null);
+  const [templateDataUrl, setTemplateDataUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const loadImg = (src: string, setter: (val: string) => void) => {
@@ -24,6 +25,7 @@ export default function App() {
     };
     loadImg('/logo.png', setLogoDataUrl);
     loadImg('/footer.png', setFooterDataUrl); // Espera que la imagen footer se provea en /footer.png
+    loadImg('/Plantilla.png', setTemplateDataUrl); // Plantilla de registro fotográfico
   }, []);
 
   const [projectInfo, setProjectInfo] = useState({
@@ -35,13 +37,13 @@ export default function App() {
   });
 
   const [photos, setPhotos] = useState([
-    { id: 'cubierta', label: 'Cubierta solar (Paneles instalados)', dataUrls: [] as string[], loading: false },
-    { id: 'inversor', label: 'Inversor (Pantalla encendida y placa)', dataUrls: [] as string[], loading: false },
-    { id: 'ac', label: 'Caja eléctrica y protecciones AC', dataUrls: [] as string[], loading: false },
-    { id: 'dc', label: 'Caja eléctrica y protecciones DC', dataUrls: [] as string[], loading: false },
-    { id: 'spt', label: 'Sistema de Puesta a Tierra (SPT)', dataUrls: [] as string[], loading: false },
-    { id: 'medidor', label: 'Medidor Bidireccional (Si ya está instalado)', dataUrls: [] as string[], loading: false },
-    { id: 'etiquetas', label: 'Etiquetado de Seguridad', dataUrls: [] as string[], loading: false },
+    { id: 'cubierta', label: 'Cubierta solar (Paneles instalados)', dataUrls: [] as string[], details: '', loading: false },
+    { id: 'inversor', label: 'Inversor (Pantalla encendida y placa)', dataUrls: [] as string[], details: '', loading: false },
+    { id: 'ac', label: 'Caja eléctrica y protecciones AC', dataUrls: [] as string[], details: '', loading: false },
+    { id: 'dc', label: 'Caja eléctrica y protecciones DC', dataUrls: [] as string[], details: '', loading: false },
+    { id: 'spt', label: 'Sistema de Puesta a Tierra (SPT)', dataUrls: [] as string[], details: '', loading: false },
+    { id: 'medidor', label: 'Medidor Bidireccional (Si ya está instalado)', dataUrls: [] as string[], details: '', loading: false },
+    { id: 'etiquetas', label: 'Etiquetado de Seguridad', dataUrls: [] as string[], details: '', loading: false },
   ]);
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -72,6 +74,10 @@ export default function App() {
 
   const removePhoto = (id: string, indexToRemove: number) => {
     setPhotos(prev => prev.map(p => p.id === id ? { ...p, dataUrls: p.dataUrls.filter((_, idx) => idx !== indexToRemove) } : p));
+  };
+
+  const handleDetailsChange = (id: string, text: string) => {
+    setPhotos(prev => prev.map(p => p.id === id ? { ...p, details: text } : p));
   };
 
   const generatePDF = async () => {
@@ -151,30 +157,162 @@ export default function App() {
       doc.text('Fecha en Marcha:', 20, yOffset);
       doc.setFont('helvetica', 'normal');
       doc.text(projectInfo.date || 'N/A', 80, yOffset);
+      yOffset += spacing * 1.5;
+
+      // Lista de evidencias reportadas
+      doc.setFont('helvetica', 'bold');
+      doc.text('Evidencias Registradas:', 20, yOffset);
+      yOffset += spacing;
+      doc.setFont('helvetica', 'normal');
+      
+      let photosAdded = 0;
+      for (const photo of photos) {
+         if (photo.dataUrls.length > 0) {
+            photosAdded++;
+            doc.setFontSize(12);
+            doc.text(`• ${photo.label}`, 25, yOffset);
+            yOffset += spacing * 0.6;
+            if (photo.details) {
+               doc.setFontSize(10);
+               doc.setTextColor(100, 100, 100);
+               const splitDetails = doc.splitTextToSize(`Detalles: ${photo.details}`, 160);
+               doc.text(splitDetails, 30, yOffset);
+               yOffset += (splitDetails.length * 4.5) + 3;
+               doc.setTextColor(50, 50, 50);
+            } else {
+               yOffset += 4;
+            }
+         }
+      }
+
+      // Plantilla Overlay (Rotada a retrato y con fotos centradas)
+      if (templateDataUrl && photosAdded > 0) {
+         doc.addPage();
+         try {
+            const tImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+               const img = new Image();
+               img.onload = () => resolve(img);
+               img.onerror = reject;
+               img.src = templateDataUrl;
+            });
+
+            const cvs = document.createElement('canvas');
+            const origW = tImg.width;
+            const origH = tImg.height;
+
+            // 1. Lienzo en modo horizontal (Landscape original) para componer exacto
+            cvs.width = origW;
+            cvs.height = origH;
+            const ctx = cvs.getContext('2d');
+
+            if (ctx) {
+               ctx.drawImage(tImg, 0, 0, origW, origH);
+
+               // Dimensiones de referencia aportadas por el usuario
+               const baseW = 1408;
+               const baseH = 768;
+
+               // Centros exactos especificados por el usuario en base a 1408x768
+               const centers: Record<string, {cx: number, cy: number, w: number, h: number}> = {
+                  'cubierta': { cx: 708, cy: 158, w: 220, h: 140 },
+                  'inversor': { cx: 208, cy: 295, w: 220, h: 140 },
+                  'ac':       { cx: 131, cy: 482, w: 180, h: 130 },
+                  'dc':       { cx: 284, cy: 482, w: 180, h: 130 },
+                  'spt':      { cx: 682, cy: 645, w: 220, h: 140 },
+                  'medidor':  { cx: 1221, cy: 278, w: 220, h: 140 }
+               };
+
+               for (const photo of photos) {
+                  if (photo.dataUrls.length > 0 && centers[photo.id]) {
+                     const box = centers[photo.id];
+                     const thumbImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+                        const img = new Image();
+                        img.onload = () => resolve(img);
+                        img.onerror = reject;
+                        img.src = photo.dataUrls[0];
+                     });
+
+                     const scaleX = origW / baseW;
+                     const scaleY = origH / baseH;
+
+                     const boxW_px = box.w * scaleX;
+                     const boxH_px = box.h * scaleY;
+                     const centerX = box.cx * scaleX;
+                     const centerY = box.cy * scaleY;
+
+                     ctx.save();
+                     ctx.translate(centerX, centerY);
+
+                     // No rotar la imagen
+                     const rFit = Math.min(boxW_px / thumbImg.width, boxH_px / thumbImg.height);
+                     const rw = thumbImg.width * rFit;
+                     const rh = thumbImg.height * rFit;
+
+                     // Borde ajustado exactamente al tamaño visual de la foto
+                     ctx.lineWidth = Math.max(1.5, origW * 0.002);
+                     ctx.strokeStyle = '#1e40af';
+                     ctx.strokeRect(-rw / 2, -rh / 2, rw, rh);
+                     
+                     ctx.drawImage(thumbImg, -rw / 2, -rh / 2, rw, rh);
+                     ctx.restore();
+                  }
+               }
+
+               // Generar la imagen final sin rotar (landscape original)
+               const finalTemplateDataUrl = cvs.toDataURL('image/jpeg', 0.9);
+               
+               const pW = doc.internal.pageSize.getWidth();
+               const pH = doc.internal.pageSize.getHeight();
+               
+               const pdfW = pW - 20;
+               const pdfH = pH - 50; // Dejar margen para footer
+               const tRatio = Math.min(pdfW / origW, pdfH / origH);
+               const drawTW = origW * tRatio;
+               const drawTH = origH * tRatio;
+               const tX = (pW - drawTW) / 2;
+               const tY = 15;
+               
+               doc.addImage(finalTemplateDataUrl, 'JPEG', tX, tY, drawTW, drawTH);
+
+               if (footerDataUrl) {
+                  const fProps = doc.getImageProperties(footerDataUrl);
+                  const fRatio = pW / fProps.width;
+                  doc.addImage(footerDataUrl, 'PNG', 0, pH - (fProps.height * fRatio), pW, fProps.height * fRatio);
+               }
+            }
+         } catch(e) {
+            console.error('Error al insertar plantilla compuesta en PDF', e);
+         }
+      }
 
       // Photos
-      let photosAdded = 0;
       for (const photo of photos) {
         if (photo.dataUrls.length > 0) {
           for (let i = 0; i < photo.dataUrls.length; i++) {
             const dataUrl = photo.dataUrls[i];
             doc.addPage();
-            photosAdded++;
             
             doc.setFontSize(16);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(30, 58, 138);
             doc.text(`${photo.label} (${i + 1}/${photo.dataUrls.length})`, 20, 20);
             
+            if (photo.details && i === 0) {
+              doc.setFontSize(10);
+              doc.setTextColor(50, 50, 50);
+              const split = doc.splitTextToSize(`Detalles: ${photo.details}`, 160);
+              doc.text(split, 20, 27);
+            }
+
             const imgProps = doc.getImageProperties(dataUrl);
             const pdfW = doc.internal.pageSize.getWidth() - 40;
-            const pdfH = doc.internal.pageSize.getHeight() - 40 - 20; // Dejar espacio para footer
+            const pdfH = doc.internal.pageSize.getHeight() - 45 - 20; // Espacios para titulo, detalle y footer
             
             const ratio = Math.min(pdfW / imgProps.width, pdfH / imgProps.height);
             const drawW = imgProps.width * ratio;
             const drawH = imgProps.height * ratio;
             
-            doc.addImage(dataUrl, 'JPEG', 20, 30, drawW, drawH);
+            doc.addImage(dataUrl, 'JPEG', 20, 38, drawW, drawH);
 
             // Add footer to page if available
             if (footerDataUrl) {
@@ -328,19 +466,30 @@ export default function App() {
                 </div>
 
                 {photo.dataUrls.length > 0 && (
-                  <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {photo.dataUrls.map((url, idx) => (
-                      <div key={idx} className="relative rounded overflow-hidden border border-slate-200 bg-slate-100 group">
-                        <img src={url} alt={`${photo.label} ${idx + 1}`} className="w-full h-24 sm:h-32 object-cover" />
-                        <button
-                          onClick={() => removePhoto(photo.id, idx)}
-                          className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white p-1 rounded hover:scale-110 active:scale-95 transition-all text-xs z-10"
-                          title="Eliminar foto"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
+                  <div className="mt-4 space-y-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {photo.dataUrls.map((url, idx) => (
+                        <div key={idx} className="relative rounded overflow-hidden border border-slate-200 bg-slate-100 group">
+                          <img src={url} alt={`${photo.label} ${idx + 1}`} className="w-full h-24 sm:h-32 object-cover" />
+                          <button
+                            onClick={() => removePhoto(photo.id, idx)}
+                            className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white p-1 rounded hover:scale-110 active:scale-95 transition-all text-xs z-10"
+                            title="Eliminar foto"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <textarea
+                        value={photo.details || ''}
+                        onChange={(e) => handleDetailsChange(photo.id, e.target.value)}
+                        placeholder="Detalles adicionales (Marca, Modelo, etc)..."
+                        className="w-full text-sm border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        rows={2}
+                      />
+                    </div>
                   </div>
                 )}
               </div>
