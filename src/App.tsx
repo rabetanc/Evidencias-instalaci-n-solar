@@ -32,6 +32,7 @@ export default function App() {
     name: '',
     address: '',
     capacity: '',
+    panelsCount: '',
     panelRef: '',
     inverterRef: '',
     leader: '',
@@ -40,15 +41,15 @@ export default function App() {
 
   const [photos, setPhotos] = useState([
     { id: 'cubierta', label: 'Cubierta solar (Paneles instalados)', dataUrls: [] as { url: string; notes: string }[], details: '', loading: false },
-    { id: 'inversor_puesta_marcha', label: 'Inversor (Puesta en marcha)', dataUrls: [] as { url: string; notes: string }[], details: '', loading: false },
     { id: 'inversor_placa', label: 'Inversor (Placa. Serial y referencia)', dataUrls: [] as { url: string; notes: string }[], details: '', loading: false },
     { id: 'inversor_funcionando', label: 'Inversor (Funcionando)', dataUrls: [] as { url: string; notes: string }[], details: '', loading: false },
     { id: 'inversor_cno', label: 'Inversor (Configuración parametros CNO)', dataUrls: [] as { url: string; notes: string }[], details: '', loading: false },
-    { id: 'inversor_voc', label: 'Inversor (Medición Voc por string)', dataUrls: [] as { url: string; notes: string }[], details: '', loading: false },
+    { id: 'pruebas_voc', label: 'Pruebas Voc por String', dataUrls: [] as { url: string; notes: string }[], details: '', loading: false },
     { id: 'ac', label: 'Caja eléctrica y protecciones AC', dataUrls: [] as { url: string; notes: string }[], details: '', loading: false },
     { id: 'dc', label: 'Caja eléctrica y protecciones DC', dataUrls: [] as { url: string; notes: string }[], details: '', loading: false },
     { id: 'spt', label: 'Sistema de Puesta a Tierra (SPT)', dataUrls: [] as { url: string; notes: string }[], details: '', loading: false },
     { id: 'medidor', label: 'Medidor Bidireccional', dataUrls: [] as { url: string; notes: string }[], details: '', loading: false },
+    { id: 'etiquetado', label: 'Etiquetado de Seguridad', dataUrls: [] as { url: string; notes: string }[], details: '', loading: false },
   ]);
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -142,7 +143,7 @@ export default function App() {
       let yOffset = 50;
 
       doc.setFont('helvetica', 'bold');
-      doc.text('Nombre del Proyecto:', 20, yOffset);
+      doc.text('Nombre del proyecto:', 20, yOffset);
       doc.setFont('helvetica', 'normal');
       doc.text(projectInfo.name || 'N/A', 100, yOffset);
       yOffset += spacing;
@@ -154,31 +155,37 @@ export default function App() {
       yOffset += spacing;
 
       doc.setFont('helvetica', 'bold');
-      doc.text('Capacidad (kWp):', 20, yOffset);
+      doc.text('Capacidad en kWp:', 20, yOffset);
       doc.setFont('helvetica', 'normal');
       doc.text(projectInfo.capacity || 'N/A', 100, yOffset);
       yOffset += spacing;
 
       doc.setFont('helvetica', 'bold');
-      doc.text('Referencia panel solar (cant-marca-pot):', 20, yOffset);
+      doc.text('Cantidad de paneles:', 20, yOffset);
+      doc.setFont('helvetica', 'normal');
+      doc.text(projectInfo.panelsCount || 'N/A', 100, yOffset);
+      yOffset += spacing;
+
+      doc.setFont('helvetica', 'bold');
+      doc.text('Referencia del panel:', 20, yOffset);
       doc.setFont('helvetica', 'normal');
       doc.text(projectInfo.panelRef || 'N/A', 100, yOffset);
       yOffset += spacing;
 
       doc.setFont('helvetica', 'bold');
-      doc.text('Referencia inversor (cant-marca-pot):', 20, yOffset);
+      doc.text('Inversor (Marca-Referencia-Potencia):', 20, yOffset);
       doc.setFont('helvetica', 'normal');
       doc.text(projectInfo.inverterRef || 'N/A', 100, yOffset);
       yOffset += spacing;
 
       doc.setFont('helvetica', 'bold');
-      doc.text('Líder Técnico en Campo:', 20, yOffset);
+      doc.text('Líder técnico en campo:', 20, yOffset);
       doc.setFont('helvetica', 'normal');
       doc.text(projectInfo.leader || 'N/A', 100, yOffset);
       yOffset += spacing;
 
       doc.setFont('helvetica', 'bold');
-      doc.text('Fecha de Puesta en Marcha:', 20, yOffset);
+      doc.text('Fecha de puesta en marcha:', 20, yOffset);
       doc.setFont('helvetica', 'normal');
       doc.text(projectInfo.date || 'N/A', 100, yOffset);
       yOffset += spacing * 1.5;
@@ -263,7 +270,7 @@ export default function App() {
                for (const key of Object.keys(centers)) {
                   let imgDataUrl: string | null = null;
                   if (key === 'inversor') {
-                     const invIds = ['inversor_puesta_marcha', 'inversor_placa', 'inversor_funcionando', 'inversor_cno', 'inversor_voc'];
+                     const invIds = ['inversor_placa', 'inversor_funcionando', 'inversor_cno', 'pruebas_voc'];
                      for (const id of invIds) {
                         const p = photos.find(x => x.id === id);
                         if (p && p.dataUrls.length > 0) {
@@ -396,6 +403,71 @@ export default function App() {
         }
       }
 
+      // Signature page
+      doc.addPage();
+      
+      // Header for signatures
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 58, 138); // blue-900
+      doc.text('Cierre y Firmas de Conformidad', 20, 30);
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(80, 80, 80);
+      doc.text('En señal de conformidad con la instalación y puesta en marcha del proyecto,', 20, 42);
+      doc.text('se disponen los siguientes campos de firma para constancia física de entrega:', 20, 48);
+
+      const sigY = 110; // Y coordinate for the lines to leave plenty of space for handwritten signatures
+      doc.setDrawColor(150, 150, 150);
+      doc.setLineWidth(0.5);
+
+      // Left: Cliente
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(30, 58, 138);
+      doc.text('Por el Cliente:', 25, sigY - 20);
+
+      doc.line(25, sigY, 90, sigY); // Signature line
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(50, 50, 50);
+      doc.text('Firma:', 25, sigY + 6);
+      doc.text('Nombre: _________________________________', 25, sigY + 14);
+      doc.text('CC: _____________________________________', 25, sigY + 22);
+
+      // Right: Lider Proyectos MasLightSolar
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(30, 58, 138);
+      doc.text('Por MasLightSolar:', 115, sigY - 20);
+
+      doc.line(115, sigY, 180, sigY); // Signature line
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(50, 50, 50);
+      doc.text('Firma:', 115, sigY + 6);
+      doc.text('Líder Proyectos MasLightSolar', 115, sigY + 14);
+      doc.text('Nombre: _________________________________', 115, sigY + 22);
+      doc.text('CC: _____________________________________', 115, sigY + 30);
+
+      // Add footer to signature page if available
+      if (footerDataUrl) {
+        try {
+          const footerProps = doc.getImageProperties(footerDataUrl);
+          const pW = doc.internal.pageSize.getWidth();
+          const pH = doc.internal.pageSize.getHeight();
+          const fRatio = pW / footerProps.width;
+          const fW = pW;
+          const fH = footerProps.height * fRatio;
+          doc.addImage(footerDataUrl, 'PNG', 0, pH - fH, fW, fH);
+        } catch(e) {
+          console.warn('Could not add footer on signature page', e);
+        }
+      }
+
       if (photosAdded === 0) {
         alert('ADVERTENCIA: No se han incluido fotos en el PDF. Toma evidencia antes de generar.');
       }
@@ -433,7 +505,7 @@ export default function App() {
           <div className="p-4 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-600">Nombre del Proyecto</label>
+                <label className="text-sm font-semibold text-slate-600">Nombre del proyecto</label>
                 <input 
                   type="text" name="name" value={projectInfo.name} onChange={handleInfoChange}
                   className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
@@ -449,7 +521,7 @@ export default function App() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-600">Capacidad (kWp)</label>
+                <label className="text-sm font-semibold text-slate-600">Capacidad en kWp</label>
                 <input 
                   type="number" name="capacity" value={projectInfo.capacity} onChange={handleInfoChange}
                   className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
@@ -457,31 +529,39 @@ export default function App() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-600">Referencia panel solar (cantidad-marca-potencia)</label>
+                <label className="text-sm font-semibold text-slate-600">Cantidad de paneles</label>
+                <input 
+                  type="number" name="panelsCount" value={projectInfo.panelsCount || ''} onChange={handleInfoChange}
+                  className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  placeholder="Ej: 10"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-600">Referencia del panel</label>
                 <input 
                   type="text" name="panelRef" value={projectInfo.panelRef} onChange={handleInfoChange}
                   className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  placeholder="Ej: 10-Jinko-550W"
+                  placeholder="Ej: Jinko-550W"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-600">Referencia inversor (cantidad-marca-potencia)</label>
+                <label className="text-sm font-semibold text-slate-600">Inversor (Marca-Referencia-Potencia)</label>
                 <input 
                   type="text" name="inverterRef" value={projectInfo.inverterRef} onChange={handleInfoChange}
                   className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  placeholder="Ej: 1-Fronius-5kW"
+                  placeholder="Ej: Fronius-Symo-5.0kW"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-600">Líder Técnico en Campo</label>
+                <label className="text-sm font-semibold text-slate-600">Líder técnico en campo</label>
                 <input 
                   type="text" name="leader" value={projectInfo.leader} onChange={handleInfoChange}
                   className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                   placeholder="Nombre del ingeniero"
                 />
               </div>
-              <div className="space-y-1 md:col-span-2">
-                <label className="text-sm font-semibold text-slate-600">Fecha de Puesta en Marcha</label>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-600">Fecha de puesta en marcha</label>
                 <input 
                   type="date" name="date" value={projectInfo.date} onChange={handleInfoChange}
                   className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
