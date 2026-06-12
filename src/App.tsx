@@ -32,18 +32,23 @@ export default function App() {
     name: '',
     address: '',
     capacity: '',
+    panelRef: '',
+    inverterRef: '',
     leader: '',
     date: ''
   });
 
   const [photos, setPhotos] = useState([
-    { id: 'cubierta', label: 'Cubierta solar (Paneles instalados)', dataUrls: [] as string[], details: '', loading: false },
-    { id: 'inversor', label: 'Inversor (Pantalla encendida y placa)', dataUrls: [] as string[], details: '', loading: false },
-    { id: 'ac', label: 'Caja eléctrica y protecciones AC', dataUrls: [] as string[], details: '', loading: false },
-    { id: 'dc', label: 'Caja eléctrica y protecciones DC', dataUrls: [] as string[], details: '', loading: false },
-    { id: 'spt', label: 'Sistema de Puesta a Tierra (SPT)', dataUrls: [] as string[], details: '', loading: false },
-    { id: 'medidor', label: 'Medidor Bidireccional (Si ya está instalado)', dataUrls: [] as string[], details: '', loading: false },
-    { id: 'etiquetas', label: 'Etiquetado de Seguridad', dataUrls: [] as string[], details: '', loading: false },
+    { id: 'cubierta', label: 'Cubierta solar (Paneles instalados)', dataUrls: [] as { url: string; notes: string }[], details: '', loading: false },
+    { id: 'inversor_puesta_marcha', label: 'Inversor (Puesta en marcha)', dataUrls: [] as { url: string; notes: string }[], details: '', loading: false },
+    { id: 'inversor_placa', label: 'Inversor (Placa. Serial y referencia)', dataUrls: [] as { url: string; notes: string }[], details: '', loading: false },
+    { id: 'inversor_funcionando', label: 'Inversor (Funcionando)', dataUrls: [] as { url: string; notes: string }[], details: '', loading: false },
+    { id: 'inversor_cno', label: 'Inversor (Configuración parametros CNO)', dataUrls: [] as { url: string; notes: string }[], details: '', loading: false },
+    { id: 'inversor_voc', label: 'Inversor (Medición Voc por string)', dataUrls: [] as { url: string; notes: string }[], details: '', loading: false },
+    { id: 'ac', label: 'Caja eléctrica y protecciones AC', dataUrls: [] as { url: string; notes: string }[], details: '', loading: false },
+    { id: 'dc', label: 'Caja eléctrica y protecciones DC', dataUrls: [] as { url: string; notes: string }[], details: '', loading: false },
+    { id: 'spt', label: 'Sistema de Puesta a Tierra (SPT)', dataUrls: [] as { url: string; notes: string }[], details: '', loading: false },
+    { id: 'medidor', label: 'Medidor Bidireccional', dataUrls: [] as { url: string; notes: string }[], details: '', loading: false },
   ]);
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -59,12 +64,12 @@ export default function App() {
     setPhotos(prev => prev.map(p => p.id === id ? { ...p, loading: true } : p));
     
     try {
-      const newDataUrls: string[] = [];
+      const newItems: { url: string; notes: string }[] = [];
       for (const file of files) {
-        const dataUrl = await processImage(file);
-        newDataUrls.push(dataUrl);
+        const dataUrl = await processImage(file as File);
+        newItems.push({ url: dataUrl, notes: '' });
       }
-      setPhotos(prev => prev.map(p => p.id === id ? { ...p, dataUrls: [...p.dataUrls, ...newDataUrls], loading: false } : p));
+      setPhotos(prev => prev.map(p => p.id === id ? { ...p, dataUrls: [...p.dataUrls, ...newItems], loading: false } : p));
     } catch (err) {
       console.error(err);
       alert('Error procesando la imagen o no se aprobó la geolocalización. ' + (err instanceof Error ? err.message : ''));
@@ -78,6 +83,13 @@ export default function App() {
 
   const handleDetailsChange = (id: string, text: string) => {
     setPhotos(prev => prev.map(p => p.id === id ? { ...p, details: text } : p));
+  };
+
+  const handleIndividualNoteChange = (id: string, index: number, note: string) => {
+    setPhotos(prev => prev.map(p => p.id === id ? {
+      ...p,
+      dataUrls: p.dataUrls.map((item, idx) => idx === index ? { ...item, notes: note } : item)
+    } : p));
   };
 
   const generatePDF = async () => {
@@ -113,7 +125,7 @@ export default function App() {
          } catch(e) {
            console.warn('Could not add footer to portada', e);
          }
-      }
+        }
 
       doc.setFontSize(22);
       doc.setTextColor(30, 58, 138); // blue-900
@@ -123,44 +135,57 @@ export default function App() {
       doc.setDrawColor(200, 200, 200);
       doc.line(20, 40, 190, 40);
 
-      doc.setFontSize(12);
+      doc.setFontSize(11);
       doc.setTextColor(50, 50, 50);
 
-      const spacing = 12;
-      let yOffset = 52;
+      const spacing = 11;
+      let yOffset = 50;
 
       doc.setFont('helvetica', 'bold');
       doc.text('Nombre del Proyecto:', 20, yOffset);
       doc.setFont('helvetica', 'normal');
-      doc.text(projectInfo.name || 'N/A', 80, yOffset);
+      doc.text(projectInfo.name || 'N/A', 100, yOffset);
       yOffset += spacing;
 
       doc.setFont('helvetica', 'bold');
       doc.text('Dirección:', 20, yOffset);
       doc.setFont('helvetica', 'normal');
-      doc.text(projectInfo.address || 'N/A', 80, yOffset);
+      doc.text(projectInfo.address || 'N/A', 100, yOffset);
       yOffset += spacing;
 
       doc.setFont('helvetica', 'bold');
       doc.text('Capacidad (kWp):', 20, yOffset);
       doc.setFont('helvetica', 'normal');
-      doc.text(projectInfo.capacity || 'N/A', 80, yOffset);
+      doc.text(projectInfo.capacity || 'N/A', 100, yOffset);
       yOffset += spacing;
 
       doc.setFont('helvetica', 'bold');
-      doc.text('Líder Técnico:', 20, yOffset);
+      doc.text('Referencia panel solar (cant-marca-pot):', 20, yOffset);
       doc.setFont('helvetica', 'normal');
-      doc.text(projectInfo.leader || 'N/A', 80, yOffset);
+      doc.text(projectInfo.panelRef || 'N/A', 100, yOffset);
       yOffset += spacing;
 
       doc.setFont('helvetica', 'bold');
-      doc.text('Fecha en Marcha:', 20, yOffset);
+      doc.text('Referencia inversor (cant-marca-pot):', 20, yOffset);
       doc.setFont('helvetica', 'normal');
-      doc.text(projectInfo.date || 'N/A', 80, yOffset);
+      doc.text(projectInfo.inverterRef || 'N/A', 100, yOffset);
+      yOffset += spacing;
+
+      doc.setFont('helvetica', 'bold');
+      doc.text('Líder Técnico en Campo:', 20, yOffset);
+      doc.setFont('helvetica', 'normal');
+      doc.text(projectInfo.leader || 'N/A', 100, yOffset);
+      yOffset += spacing;
+
+      doc.setFont('helvetica', 'bold');
+      doc.text('Fecha de Puesta en Marcha:', 20, yOffset);
+      doc.setFont('helvetica', 'normal');
+      doc.text(projectInfo.date || 'N/A', 100, yOffset);
       yOffset += spacing * 1.5;
 
       // Lista de evidencias reportadas
       doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
       doc.text('Evidencias Registradas:', 20, yOffset);
       yOffset += spacing;
       doc.setFont('helvetica', 'normal');
@@ -169,18 +194,31 @@ export default function App() {
       for (const photo of photos) {
          if (photo.dataUrls.length > 0) {
             photosAdded++;
-            doc.setFontSize(12);
+            doc.setFontSize(11);
             doc.text(`• ${photo.label}`, 25, yOffset);
             yOffset += spacing * 0.6;
+            
+            // Build text of details + individual notes
+            const notesList: string[] = [];
+            photo.dataUrls.forEach((it, idx) => {
+              if (it.notes) {
+                notesList.push(`[Foto ${idx + 1}]: ${it.notes}`);
+              }
+            });
             if (photo.details) {
-               doc.setFontSize(10);
-               doc.setTextColor(100, 100, 100);
-               const splitDetails = doc.splitTextToSize(`Detalles: ${photo.details}`, 160);
+              notesList.unshift(`Detalles: ${photo.details}`);
+            }
+
+            if (notesList.length > 0) {
+               doc.setFontSize(9);
+               doc.setTextColor(110, 110, 110);
+               const textToPrint = notesList.join(' | ');
+               const splitDetails = doc.splitTextToSize(textToPrint, 160);
                doc.text(splitDetails, 30, yOffset);
                yOffset += (splitDetails.length * 4.5) + 3;
                doc.setTextColor(50, 50, 50);
             } else {
-               yOffset += 4;
+               yOffset += 3;
             }
          }
       }
@@ -222,14 +260,31 @@ export default function App() {
                   'medidor':  { cx: 1221, cy: 278, w: 220, h: 140 }
                };
 
-               for (const photo of photos) {
-                  if (photo.dataUrls.length > 0 && centers[photo.id]) {
-                     const box = centers[photo.id];
+               for (const key of Object.keys(centers)) {
+                  let imgDataUrl: string | null = null;
+                  if (key === 'inversor') {
+                     const invIds = ['inversor_puesta_marcha', 'inversor_placa', 'inversor_funcionando', 'inversor_cno', 'inversor_voc'];
+                     for (const id of invIds) {
+                        const p = photos.find(x => x.id === id);
+                        if (p && p.dataUrls.length > 0) {
+                           imgDataUrl = p.dataUrls[0].url;
+                           break;
+                        }
+                     }
+                  } else {
+                     const p = photos.find(x => x.id === key);
+                     if (p && p.dataUrls.length > 0) {
+                        imgDataUrl = p.dataUrls[0].url;
+                     }
+                  }
+
+                  if (imgDataUrl) {
+                     const box = centers[key];
                      const thumbImg = await new Promise<HTMLImageElement>((resolve, reject) => {
                         const img = new Image();
                         img.onload = () => resolve(img);
                         img.onerror = reject;
-                        img.src = photo.dataUrls[0];
+                        img.src = imgDataUrl!;
                      });
 
                      const scaleX = origW / baseW;
@@ -289,7 +344,9 @@ export default function App() {
       for (const photo of photos) {
         if (photo.dataUrls.length > 0) {
           for (let i = 0; i < photo.dataUrls.length; i++) {
-            const dataUrl = photo.dataUrls[i];
+            const item = photo.dataUrls[i];
+            const dataUrl = item.url;
+            const note = item.notes;
             doc.addPage();
             
             doc.setFontSize(16);
@@ -297,10 +354,17 @@ export default function App() {
             doc.setTextColor(30, 58, 138);
             doc.text(`${photo.label} (${i + 1}/${photo.dataUrls.length})`, 20, 20);
             
-            if (photo.details && i === 0) {
-              doc.setFontSize(10);
+            let explanation = '';
+            if (note) {
+              explanation = `Nota individual: ${note}`;
+            } else if (photo.details && i === 0) {
+              explanation = `Detalles: ${photo.details}`;
+            }
+
+            if (explanation) {
+              doc.setFontSize(11);
               doc.setTextColor(50, 50, 50);
-              const split = doc.splitTextToSize(`Detalles: ${photo.details}`, 160);
+              const split = doc.splitTextToSize(explanation, 160);
               doc.text(split, 20, 27);
             }
 
@@ -393,6 +457,22 @@ export default function App() {
                 />
               </div>
               <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-600">Referencia panel solar (cantidad-marca-potencia)</label>
+                <input 
+                  type="text" name="panelRef" value={projectInfo.panelRef} onChange={handleInfoChange}
+                  className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  placeholder="Ej: 10-Jinko-550W"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-600">Referencia inversor (cantidad-marca-potencia)</label>
+                <input 
+                  type="text" name="inverterRef" value={projectInfo.inverterRef} onChange={handleInfoChange}
+                  className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  placeholder="Ej: 1-Fronius-5kW"
+                />
+              </div>
+              <div className="space-y-1">
                 <label className="text-sm font-semibold text-slate-600">Líder Técnico en Campo</label>
                 <input 
                   type="text" name="leader" value={projectInfo.leader} onChange={handleInfoChange}
@@ -468,16 +548,25 @@ export default function App() {
                 {photo.dataUrls.length > 0 && (
                   <div className="mt-4 space-y-3">
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {photo.dataUrls.map((url, idx) => (
-                        <div key={idx} className="relative rounded overflow-hidden border border-slate-200 bg-slate-100 group">
-                          <img src={url} alt={`${photo.label} ${idx + 1}`} className="w-full h-24 sm:h-32 object-cover" />
-                          <button
-                            onClick={() => removePhoto(photo.id, idx)}
-                            className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white p-1 rounded hover:scale-110 active:scale-95 transition-all text-xs z-10"
-                            title="Eliminar foto"
-                          >
-                            ✕
-                          </button>
+                      {photo.dataUrls.map((item, idx) => (
+                        <div key={idx} className="space-y-1">
+                          <div className="relative rounded overflow-hidden border border-slate-200 bg-slate-100">
+                            <img src={item.url} alt={`${photo.label} ${idx + 1}`} className="w-full h-24 sm:h-32 object-cover" />
+                            <button
+                              onClick={() => removePhoto(photo.id, idx)}
+                              className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white p-1 rounded hover:scale-110 active:scale-95 transition-all text-xs z-10"
+                              title="Eliminar foto"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          <input
+                            type="text"
+                            value={item.notes || ''}
+                            onChange={(e) => handleIndividualNoteChange(photo.id, idx, e.target.value)}
+                            placeholder={`Nota para Foto ${idx + 1}...`}
+                            className="w-full text-xs border border-slate-300 rounded p-1 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white outline-none"
+                          />
                         </div>
                       ))}
                     </div>
